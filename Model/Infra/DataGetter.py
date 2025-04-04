@@ -1,3 +1,4 @@
+
 import os
 import tarfile
 from io import BytesIO
@@ -27,11 +28,11 @@ desired_classes = {
 }
 #https://image-net.org/data/winter21_whole/n03000684.tar
 # Define a preprocessing data pipeline
-transform = transforms.Compose([
+gTransform = transforms.Compose([
     transforms.Resize((64, 64)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+    transforms.ToTensor()
+    #transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         #std=[0.229, 0.224, 0.225])
 ])
 
 # Make sure the output directory exists
@@ -74,25 +75,29 @@ def download_tar(desired_classes, output_dir):
         else:
             print("images had been loaded")
 
-def convert2set(desired_classes, output_dir):
+def convert2set(desired_classes,transform,output_dir):
     processed_data = []
     labels = []
-    paths = [os.path.join(output_dir, file, "extracted_images")
+    paths = [os.path.join(output_dir, file)
              for file in os.listdir(output_dir)
              if os.path.isdir(os.path.join(output_dir, file))
              ]
-    print("Processing image")
+    print(f"Processing image{paths}")
     for image_dir in paths:
         for root, _, files in os.walk(image_dir):
             for file in tqdm(files, desc="resizing images"):
+                image_path = os.path.join(root, file)
                 try:
-                    image_path = os.path.join(root,file)
-                    image = Image.open(image_path).convert("RGB")
-                    processed_image = transform(image)
-                    processed_data.append(processed_image)
-                    labels.append(int(desired_classes[os.path.basename(os.path.dirname(root))][-3:]))
+                    image = Image.open(image_path)
                 except Exception as e:
                     print(f"failed to process the imageL: {file} {e} ")
+                    continue
+
+                labels.append(int(os.path.basename(root)[-3:]))
+                image = image.convert("RGB")
+                processed_image = transform(image)
+                processed_data.append(processed_image)
+
     return processed_data, labels
 
 def set2torch(images, labels, pth_dir):
@@ -106,7 +111,6 @@ def set2torch(images, labels, pth_dir):
     print("Data tensor shape:", dataset_tensor.shape)
     print("Labels tensor:", len(labels))
 
-image_dir = os.path.join(os.path.join(output_dir, "hammer"),"extracted_images")
-images, labels = convert2set(desired_classes=desired_classes, output_dir=output_dir)
-set2torch(images=images, labels=labels, pth_dir=pth_dir)
 
+images, labels = convert2set(desired_classes=desired_classes, transform=gTransform,output_dir=output_dir)
+set2torch(images=images, labels=labels, pth_dir=pth_dir)
